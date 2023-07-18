@@ -1,7 +1,7 @@
 #!/bin/python
-from PyQt5.QtWidgets import QApplication, QWidget, QTimer, QPainter
-from PyQt5.QtCore import Qt
-from PyQt5.Qt import QColor, QEvent, QPoint, QRect, QPen, QPainterPath
+from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath
+from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QEvent
 from pynput.mouse import Controller
 from screeninfo import get_monitors
 

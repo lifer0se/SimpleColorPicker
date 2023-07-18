@@ -1,7 +1,8 @@
 #!/bin/python
-from PyQt5.QtWidgets import QApplication, QFrame, QGridLayout, QHBoxLayout, QWidget, QTabWidget, QCheckBox, QPushButton, QLabel, QLineEdit
-from PyQt5.QtCore import Qt
-from PyQt5.Qt import QColor, QIcon, QEvent, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QWidget, QFrame, QGridLayout, QHBoxLayout, QTabWidget
+from PyQt5.QtWidgets import QCheckBox, QPushButton, QLabel, QLineEdit, QSpacerItem, QSizePolicy
+from PyQt5.QtGui import QIcon, QColor
+from PyQt5.QtCore import Qt, QEvent
 import sys
 import os
 import picker
