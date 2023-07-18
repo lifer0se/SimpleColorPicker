@@ -1,11 +1,12 @@
 #!/bin/python
-from PyQt5.QtWidgets import QSpacerItem, QWidget, QApplication, QFrame, QGridLayout, QPushButton, QTabWidget, QLabel, QLineEdit, QHBoxLayout, QCheckBox
+from PyQt5.QtWidgets import QApplication, QFrame, QGridLayout, QHBoxLayout, QWidget, QTabWidget, QCheckBox, QPushButton, QLabel, QLineEdit
 from PyQt5.QtCore import Qt
-from PyQt5.Qt import QColor, QIcon, QEvent, QPoint, QSpacerItem, QSizePolicy
+from PyQt5.Qt import QColor, QIcon, QEvent, QSpacerItem, QSizePolicy
 import sys
 import os
 import picker
 import images_qr
+
 
 class Tab:
     widget: QWidget
@@ -13,6 +14,7 @@ class Tab:
     frames = []
     textboxes = []
     line_indicators = []
+
     def __init__(self, widget, label):
         self.widget = widget
         self.label = label
@@ -31,7 +33,7 @@ class MainWindow(QWidget):
 
         self.setWindowTitle("QtPicker")
         self.setStyleSheet("background: #383C4A; color: #CFD6DF")
-        self.setWindowFlags(Qt.Tool | Qt.MSWindowsFixedSizeDialogHint);
+        self.setWindowFlags(Qt.Tool | Qt.MSWindowsFixedSizeDialogHint)
         self.setMouseTracking(True)
         self.installEventFilter(self)
         self.setFixedSize(417, 578)
@@ -42,9 +44,27 @@ class MainWindow(QWidget):
         self.main_gradient = QFrame()
         self.main_gradient.setFixedSize(main_gradient_size, main_gradient_size)
 
+        black_overlay_stylesheet = """
+            background-color:
+                qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(0, 0, 0, 0),
+                    stop:1 rgba(0, 0, 0, 255)
+                );"""
+        hue_gradient_stylesheet = """
+            background-color:
+                qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0,
+                    stop:0 rgba(255, 0, 0, 255),
+                    stop:0.166 rgba(255, 255, 0, 255),
+                    stop:0.333 rgba(0, 255, 0, 255),
+                    stop:0.5 rgba(0, 255, 255, 255),
+                    stop:0.666 rgba(0, 0, 255, 255),
+                    stop:0.833 rgba(255, 0, 255, 255),
+                    stop:1 rgba(255, 0, 0, 255)
+                );"""
+
         self.black_overlay = QFrame()
         self.black_overlay.setFixedSize(main_gradient_size, main_gradient_size)
-        self.black_overlay.setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(0, 0, 0, 0), stop:1 rgba(0, 0, 0, 255));")
+        self.black_overlay.setStyleSheet(black_overlay_stylesheet)
         self.black_overlay.mousePressEvent = self.on_gradient_click
         self.black_overlay.mouseMoveEvent = self.on_gradient_click
         self.black_overlay.wheelEvent = self.on_gradient_scroll
@@ -53,12 +73,11 @@ class MainWindow(QWidget):
 
         self.hue_gradient = QFrame()
         self.hue_gradient.setFixedSize(side_gradient_size, main_gradient_size - 2)
-        self.hue_gradient.setStyleSheet("background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0, y2:0, stop:0 rgba(255, 0, 0, 255), stop:0.166 rgba(255, 255, 0, 255), stop:0.333 rgba(0, 255, 0, 255), stop:0.5 rgba(0, 255, 255, 255), stop:0.666 rgba(0, 0, 255, 255), stop:0.833 rgba(255, 0, 255, 255), stop:1 rgba(255, 0, 0, 255));")
+        self.hue_gradient.setStyleSheet(hue_gradient_stylesheet)
         self.hue_gradient.mousePressEvent = self.on_hue_gradient_click
         self.hue_gradient.mouseMoveEvent = self.on_hue_gradient_click
         self.hue_gradient.wheelEvent = self.on_side_hue_scroll
         self.hue_line = QFrame(self.hue_gradient)
-
 
         rgb_gradient_click_functions = [ self.on_red_gradient_clicked, self.on_green_gradient_clicked, self.on_blue_gradient_clicked ]
         hsv_gradient_click_functions = [ self.on_hue_gradient_clicked, self.on_saturation_gradient_clicked, self.on_value_gradient_clicked ]
@@ -94,11 +113,11 @@ class MainWindow(QWidget):
         bottom_layout = QHBoxLayout()
         bottom_layout.addWidget(self.current_color_frame)
         bottom_layout.addWidget(picker_button)
-        bottom_layout.addSpacerItem(QSpacerItem(20,10, QSizePolicy.Expanding))
+        bottom_layout.addSpacerItem(QSpacerItem(20, 10, QSizePolicy.Expanding))
         bottom_layout.addWidget(self.raw_check_box)
         bottom_layout.addWidget(self.hex_line_edit)
         bottom_layout.setAlignment(Qt.AlignCenter)
-        bottom_layout.setContentsMargins(0,0,0,0)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_widget = QWidget()
         bottom_widget.setLayout(bottom_layout)
 
@@ -254,13 +273,13 @@ class MainWindow(QWidget):
 
 
     def on_gradient_scroll(self, event):
-        if event.angleDelta().x() > 0 :
+        if event.angleDelta().x() > 0:
             deltaX = 1
         elif event.angleDelta().x() < 0:
             deltaX = -1
         else:
             deltaX = 0
-        if event.angleDelta().y() > 0 :
+        if event.angleDelta().y() > 0:
             deltaY = 1
         elif event.angleDelta().y() < 0:
             deltaY = -1
@@ -444,28 +463,40 @@ class MainWindow(QWidget):
 
 
     def update_rgb_tab(self):
-        c1 = "stop:0 rgba(0, {}, {}, 255), stop:1 rgba(255, {}, {}, 255)".format(self.current_color.green(), self.current_color.blue(), self.current_color.green(), self.current_color.blue())
-        c2 = "stop:0 rgba({}, 0, {}, 255), stop:1 rgba({}, 255, {}, 255)".format(self.current_color.red(), self.current_color.blue(), self.current_color.red(), self.current_color.blue())
-        c3 = "stop:0 rgba({}, {}, 0, 255), stop:1 rgba({}, {}, 255, 255)".format(self.current_color.red(), self.current_color.green(), self.current_color.red(), self.current_color.green())
+        c1 = "stop:0 rgba(0, {}, {}, 255), stop:1 rgba(255, {}, {}, 255)".format(
+            self.current_color.green(), self.current_color.blue(), self.current_color.green(), self.current_color.blue())
+        c2 = "stop:0 rgba({}, 0, {}, 255), stop:1 rgba({}, 255, {}, 255)".format(
+            self.current_color.red(), self.current_color.blue(), self.current_color.red(), self.current_color.blue())
+        c3 = "stop:0 rgba({}, {}, 0, 255), stop:1 rgba({}, {}, 255, 255)".format(
+            self.current_color.red(), self.current_color.green(), self.current_color.red(), self.current_color.green())
         arr = [ c1, c2, c3 ]
         tarr = [ self.current_color.red(), self.current_color.green(), self.current_color.blue() ]
         self.update_tab(self.rgb_tab, arr, tarr)
 
 
     def update_hsv_tab(self):
-        c1 = "stop:0 rgba(255, 0, 0, 255), stop:0.166 rgba(255, 255, 0, 255), stop:0.333 rgba(0, 255, 0, 255), stop:0.5 rgba(0, 255, 255, 255), stop:0.666 rgba(0, 0, 255, 255), stop:0.833 rgba(255, 0, 255, 255), stop:1 rgba(255, 0, 0, 255)"
+        c1 = """
+            stop:0 rgba(255, 0, 0, 255),
+            stop:0.166 rgba(255, 255, 0, 255),
+            stop:0.333 rgba(0, 255, 0, 255),
+            stop:0.5 rgba(0, 255, 255, 255),
+            stop:0.666 rgba(0, 0, 255, 255),
+            stop:0.833 rgba(255, 0, 255, 255),
+            stop:1 rgba(255, 0, 0, 255)"""
 
         saturated = QColor(self.current_color)
         unsaturated = QColor(self.current_color)
         saturated.setHsv(saturated.hue(), 255, saturated.value())
         unsaturated.setHsv(unsaturated.hue(), 0, unsaturated.value())
-        c2 = "stop:0 rgba({}, {}, {}, 255), stop:1 rgba({}, {}, {}, 255)".format(unsaturated.red(), unsaturated.green(), unsaturated.blue(), saturated.red(), saturated.green(), saturated.blue())
+        c2 = "stop:0 rgba({}, {}, {}, 255), stop:1 rgba({}, {}, {}, 255)".format(
+            unsaturated.red(), unsaturated.green(), unsaturated.blue(), saturated.red(), saturated.green(), saturated.blue())
 
         valued = QColor(self.current_color)
         unvalued = QColor(self.current_color)
         valued.setHsv(valued.hue(), valued.saturation(), 255)
         unvalued.setHsv(unvalued.hue(), unvalued.saturation(), 0)
-        c3 = "stop:0 rgba({}, {}, {}, 255), stop:1 rgba({}, {}, {}, 255)".format(unvalued.red(), unvalued.green(), unvalued.blue(), valued.red(), valued.green(), valued.blue())
+        c3 = "stop:0 rgba({}, {}, {}, 255), stop:1 rgba({}, {}, {}, 255)".format(
+            unvalued.red(), unvalued.green(), unvalued.blue(), valued.red(), valued.green(), valued.blue())
 
         arr = [ c1, c2, c3 ]
         tarr = [ self.current_color.hue(), self.current_color.saturation(), self.current_color.value() ]
@@ -487,17 +518,35 @@ class MainWindow(QWidget):
 
     def update_lines(self):
         inverted_color = QColor(self.current_color)
-        inverted_color.setHsv((inverted_color.hue() + 180) % 360, min(inverted_color.saturation(), inverted_color.value()), max(inverted_color.saturation(), 255 - inverted_color.value()))
+        inverted_color.setHsv(
+            (inverted_color.hue() + 180) % 360,
+            min(inverted_color.saturation(), inverted_color.value()),
+            max(inverted_color.saturation(), 255 - inverted_color.value()))
         inverted_color.setHsv(inverted_color.hue(), 255, 255)
 
-        stylesheet = "background-color: rgba({},{},{},185)".format(inverted_color.red(), inverted_color.green(), inverted_color.blue())
+        stylesheet = "background-color: rgba({},{},{},185)".format(
+            inverted_color.red(), inverted_color.green(), inverted_color.blue())
         self.vertical_line.setStyleSheet(stylesheet)
         self.horizontal_line.setStyleSheet(stylesheet)
         self.hue_line.setStyleSheet(stylesheet)
 
-        self.vertical_line.setGeometry(int(self.current_color.saturation() * self.black_overlay.width() / 255.0) - 1, 0, 2, self.black_overlay.height())
-        self.horizontal_line.setGeometry(0, int((255 - self.current_color.value()) * self.black_overlay.height() / 255.0) - 1, self.black_overlay.width(), 2)
-        self.hue_line.setGeometry(0, int((360 - self.current_color.hue()) * self.hue_gradient.height() / 360.0) - 1, self.hue_gradient.width(), 2)
+        self.vertical_line.setGeometry(
+            int(self.current_color.saturation() * self.black_overlay.width() / 255.0) - 1,
+            0,
+            2,
+            self.black_overlay.height())
+
+        self.horizontal_line.setGeometry(
+            0,
+            int((255 - self.current_color.value()) * self.black_overlay.height() / 255.0) - 1,
+            self.black_overlay.width(),
+            2)
+
+        self.hue_line.setGeometry(
+            0,
+            int((360 - self.current_color.hue()) * self.hue_gradient.height() / 360.0) - 1,
+            self.hue_gradient.width(),
+            2)
 
         self.update_tab_lines(self.rgb_tab, self.current_rgb, stylesheet)
         self.update_tab_lines(self.hsv_tab, self.current_hsv, stylesheet)
@@ -520,7 +569,7 @@ class MainWindow(QWidget):
         widget.setLayout(layout)
         tab = Tab(widget, name)
         for i in range(3):
-            label = QLabel(name[i:i+1])
+            label = QLabel(name[i:i + 1])
             label.setFixedWidth(10)
             label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             layout.addWidget(label, i, 0)
@@ -552,7 +601,6 @@ class MainWindow(QWidget):
 
 
     def resource_path(self, relative_path):
-        """ Get absolute path to resource, works for dev and for PyInstaller """
         if getattr(sys, 'frozen', False):
             base_path = sys._MEIPASS
         else:

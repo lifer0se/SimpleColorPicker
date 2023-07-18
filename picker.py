@@ -1,13 +1,13 @@
 #!/bin/python
-from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
-from PyQt5.QtGui import *
-from PyQt5.Qt import QCursor
+from PyQt5.QtWidgets import QApplication, QWidget, QTimer, QPainter
+from PyQt5.QtCore import Qt
+from PyQt5.Qt import QColor, QEvent, QPoint, QRect, QPen, QPainterPath
 from pynput.mouse import Controller
 from screeninfo import get_monitors
 
 
 class PickerWindow(QWidget):
+
     def __init__(self, parent):
         super(PickerWindow, self).__init__()
 
@@ -73,9 +73,9 @@ class PickerWindow(QWidget):
         offsetX = 20 if (cursorX + 20 + size - 20 + 40) < self.width() else -size - 40
         offsetY = 20 if (cursorY + 20 + size - 20 + 40) < self.height() else -(size - 20)
         top_rect = QRect(cursorX + offsetX + size - 20, cursorY + offsetY, 40, 30)
-        center_rect = QRect(int(cursorX + offsetX + size * 0.5 - center_rect_size * 0.5) - 1,\
-                            int(cursorY + offsetY + size * 0.5 - center_rect_size * 0.5) - 1,\
-                            center_rect_size,\
+        center_rect = QRect(int(cursorX + offsetX + size * 0.5 - center_rect_size * 0.5) - 1,
+                            int(cursorY + offsetY + size * 0.5 - center_rect_size * 0.5) - 1,
+                            center_rect_size,
                             center_rect_size)
 
         pen = QPen(QColor("#FFFFFF"))
