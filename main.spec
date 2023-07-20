@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py','picker.py'],
     pathex=[],
     binaries=[],
-    datas=[('./picker_icon.svg', './picker_icon.svg')],
+    datas=[('./picker_icon.png', './picker_icon.png')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

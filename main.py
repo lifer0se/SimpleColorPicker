@@ -99,7 +99,7 @@ class MainWindow(QWidget):
 
         picker_button = QPushButton("")
         picker_button.setFixedSize(side_gradient_size, side_gradient_size)
-        picker_button.setIcon(QIcon(":picker_icon.svg"))
+        picker_button.setIcon(QIcon(":picker_icon.png"))
         picker_button.pressed.connect(self.show_picker)
 
         self.hex_line_edit = QLineEdit()
@@ -148,14 +148,24 @@ class MainWindow(QWidget):
 
 
     def on_color_updated(self):
-        current_hue_percent = self.current_color.hue() / 360.0 * 100.0
-        self.main_gradient.setStyleSheet("background-color: qlineargradient(spread:pad, x1:1, x2:0, stop:0 hsl({}%,100%,50%), stop:1 rgba(255, 255, 255, 255));".format(current_hue_percent))
-        self.current_color_frame.setStyleSheet("background: {}".format(self.current_color.name().upper()))
+        if self.current_color.hue() < 0:
+            self.current_color.setHsv(0, self.current_color.saturation(), self.current_color.value())
         self.current_rgb = [ self.current_color.red(), self.current_color.green(), self.current_color.blue() ]
         self.current_hsv = [ self.current_color.hue(), self.current_color.saturation(), self.current_color.value() ]
+        self.current_rgbF = [ self.current_color.redF(), self.current_color.greenF(), self.current_color.blueF() ]
+        self.current_hsvF = [ self.current_color.hueF(), self.current_color.saturationF(), self.current_color.valueF() ]
+
+        current_hue_percent = self.current_color.hue() / 359.0 * 100.0
+        self.main_gradient.setStyleSheet("""background-color:
+                                                qlineargradient(spread:pad, x1:1, x2:0,
+                                                    stop:0 hsl({}%,100%,50%),
+                                                    stop:1 rgba(255, 255, 255, 255));""".format(current_hue_percent))
+        self.current_color_frame.setStyleSheet("background: {}".format(self.current_color.name().upper()))
+
         self.update_rgb_tab()
         self.update_hsv_tab()
         self.update_lines()
+
         self.hex_line_edit.blockSignals(True)
         self.hex_line_edit.setText(self.current_color.name().upper())
         self.hex_line_edit.blockSignals(False)
@@ -183,284 +193,150 @@ class MainWindow(QWidget):
 
 
     def on_gradient_click(self, event):
-        cursor_x = event.pos().x()
-        cursor_y = event.pos().y()
-        saturation = int(cursor_x / self.black_overlay.width() * 255.0)
-        value = 255 - int(cursor_y / self.black_overlay.height() * 255.0)
-        if saturation < 0:
-            saturation = 0
-        elif saturation > 255:
-            saturation = 255
-        if value < 0:
-            value = 0
-        elif value > 255:
-            value = 255
-
-        self.current_color.setHsv(self.current_color.hue(), saturation, value)
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.black_overlay.width(), 255, 1, self.current_hsv, False)
+        self.on_click(event.pos().y(), self.black_overlay.height(), 255, 2, self.current_hsv, False, True)
 
     def on_hue_gradient_click(self, event):
-        cursor_y = event.pos().y()
-        hue = 360 - int(cursor_y / self.hue_gradient.height() * 360.0)
-        if hue < 0:
-            hue = 0
-        elif hue > 360:
-            hue = 360
-
-        self.current_color.setHsv(hue, self.current_color.saturation(), self.current_color.value())
-        self.on_color_updated()
-
+        self.on_click(event.pos().y(), self.hue_gradient.height(), 359, 0, self.current_hsv, False, True)
 
     def on_red_gradient_clicked(self, event):
-        red = int(event.pos().x() * 255.0 / self.rgb_tab.frames[0].width())
-        if red < 0:
-            red = 0
-        elif red > 255:
-            red = 255
-        self.current_color.setRgb(red, self.current_color.green(), self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.rgb_tab.frames[0].width(), 255, 0, self.current_rgb, True)
 
     def on_green_gradient_clicked(self, event):
-        green = int(event.pos().x() * 255.0 / self.rgb_tab.frames[0].width())
-        if green < 0:
-            green = 0
-        elif green > 255:
-            green = 255
-        self.current_color.setRgb(self.current_color.red(), green, self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.rgb_tab.frames[1].width(), 255, 1, self.current_rgb, True)
 
     def on_blue_gradient_clicked(self, event):
-        blue = int(event.pos().x() * 255.0 / self.rgb_tab.frames[0].width())
-        if blue < 0:
-            blue = 0
-        elif blue > 255:
-            blue = 255
-        self.current_color.setRgb(self.current_color.red(), self.current_color.green(), blue)
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.rgb_tab.frames[2].width(), 255, 2, self.current_rgb, True)
 
     def on_hue_gradient_clicked(self, event):
-        hue = int(event.pos().x() * 360.0 / self.rgb_tab.frames[0].width())
-        if hue < 0:
-            hue = 0
-        elif hue > 360:
-            hue = 360
-
-        self.current_color.setHsv(hue, self.current_color.saturation(), self.current_color.value())
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.hsv_tab.frames[0].width(), 359, 0, self.current_hsv, False)
 
     def on_saturation_gradient_clicked(self, event):
-        saturation = int(event.pos().x() * 255.0 / self.rgb_tab.frames[0].width())
-        if saturation < 0:
-            saturation = 0
-        elif saturation > 255:
-            saturation = 255
-        self.current_color.setHsv(self.current_color.hue(), saturation, self.current_color.value())
-        self.on_color_updated()
-
+        self.on_click(event.pos().x(), self.hsv_tab.frames[1].width(), 255, 1, self.current_hsv, False)
 
     def on_value_gradient_clicked(self, event):
-        value = int(event.pos().x() * 255.0 / self.rgb_tab.frames[0].width())
-        if value < 0:
-            value = 0
-        elif value > 255:
-            value = 255
-        self.current_color.setHsv(self.current_color.hue(), self.current_color.saturation(), value)
+        self.on_click(event.pos().x(), self.hsv_tab.frames[2].width(), 255, 2, self.current_hsv, False)
+
+    def on_click(self, pos, frame_width, max_value, changing_index, current_colors, is_rgb, invert: bool = False):
+        value = int(float(pos) * max_value / frame_width)
+        if invert:
+            value = max_value - value
+        value = max(0, min(max_value, value))
+        color = self.current_color_with_value(value, changing_index, current_colors, is_rgb, False)
+        if self.current_color == color:
+            return
+
+        self.current_color = color
         self.on_color_updated()
 
 
     def on_gradient_scroll(self, event):
-        if event.angleDelta().x() > 0:
-            deltaX = 1
-        elif event.angleDelta().x() < 0:
-            deltaX = -1
-        else:
-            deltaX = 0
-        if event.angleDelta().y() > 0:
-            deltaY = 1
-        elif event.angleDelta().y() < 0:
-            deltaY = -1
-        else:
-            deltaY = 0
-        value = self.current_color.value() + deltaX
-        saturation = self.current_color.saturation() + deltaY
-        if saturation < 0:
-            saturation = 0
-        elif saturation > 255:
-            saturation = 255
-        if value < 0:
-            value = 0
-        elif value > 255:
-            value = 255
-
-        self.current_color.setHsv(self.current_color.hue(), saturation, value)
-        self.on_color_updated()
-
+        if event.angleDelta().y() != 0:
+            self.on_scroll(event.angleDelta().y(), self.current_color.saturation(), 255, 1, self.current_hsv, False)
+        if event.angleDelta().x() != 0:
+            self.on_scroll(event.angleDelta().x(), self.current_color.value(), 255, 2, self.current_hsv, False)
 
     def on_side_hue_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        hue = self.current_color.hue() + int(delta)
-        if hue < 0:
-            hue = 0
-        elif hue > 360:
-            hue = 360
-
-        self.current_color.setHsv(hue, self.current_color.saturation(), self.current_color.value())
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.hue(), 359, 0, self.current_hsv, False, True)
 
     def on_red_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        red = self.current_color.red() - int(delta)
-        if red < 0:
-            red = 0
-        elif red > 255:
-            red = 255
-
-        self.current_color.setRgb(red, self.current_color.green(), self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.red(), 255, 0, self.current_rgb, True)
 
     def on_green_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        green = self.current_color.green() - int(delta)
-        if green < 0:
-            green = 0
-        elif green > 255:
-            green = 255
-
-        self.current_color.setRgb(self.current_color.red(), green, self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.green(), 255, 1, self.current_rgb, True)
 
     def on_blue_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        blue = self.current_color.blue() - int(delta)
-        if blue < 0:
-            blue = 0
-        elif blue > 255:
-            blue = 255
-
-        self.current_color.setRgb(self.current_color.red(), self.current_color.green(), blue)
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.blue(), 255, 2, self.current_rgb, True)
 
     def on_hue_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        hue = self.current_color.hue() - int(delta)
-        if hue < 0:
-            hue = 0
-        elif hue > 360:
-            hue = 360
-
-        self.current_color.setHsv(hue, self.current_color.saturation(), self.current_color.value())
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.hue(), 359, 0, self.current_hsv, False)
 
     def on_saturation_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        saturation = self.current_color.saturation() - int(delta)
-        if saturation < 0:
-            saturation = 0
-        elif saturation > 255:
-            saturation = 255
-
-        self.current_color.setHsv(self.current_color.hue(), saturation, self.current_color.value())
-        self.on_color_updated()
-
+        self.on_scroll(event.angleDelta().y(), self.current_color.saturation(), 255, 1, self.current_hsv, False)
 
     def on_value_scroll(self, event):
-        delta = 1 if event.angleDelta().y() > 0 else -1
-        value = self.current_color.value() - int(delta)
-        if value < 0:
-            value = 0
-        elif value > 255:
-            value = 255
+        self.on_scroll(event.angleDelta().y(), self.current_color.value(), 255, 2, self.current_hsv, False)
 
-        self.current_color.setHsv(self.current_color.hue(), self.current_color.saturation(), value)
+    def on_scroll(self, angleDelta, current_value, max_value, changing_index, current_colors, is_rgb, invert_scroll: bool = False):
+        delta = 1 if angleDelta > 0 else -1
+        if invert_scroll:
+            delta = -delta
+        value = current_value - int(delta)
+        value = max(0, min(max_value, value))
+        color = self.current_color_with_value(value, changing_index, current_colors, is_rgb, False)
+        if self.current_color == color:
+            return
+
+        self.current_color = color
         self.on_color_updated()
 
 
     def on_red_text_changed(self):
-        try:
-            red = int(self.rgb_tab.textboxes[0].text())
-        except:
-            return
-        if red < 0:
-            red = 0
-        elif red > 255:
-            red = 255
-        self.current_color.setRgb(red, self.current_color.green(), self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_text_changed(self.rgb_tab.textboxes[0], 255, self.current_rgbF if self.is_raw else self.current_rgb, 0, True)
 
     def on_green_text_changed(self):
-        try:
-            green = int(self.rgb_tab.textboxes[1].text())
-        except:
-            return
-        if green < 0:
-            green = 0
-        elif green > 255:
-            green = 255
-        self.current_color.setRgb(self.current_color.red(), green, self.current_color.blue())
-        self.on_color_updated()
-
+        self.on_text_changed(self.rgb_tab.textboxes[1], 255, self.current_rgbF if self.is_raw else self.current_rgb, 1, True)
 
     def on_blue_text_changed(self):
-        try:
-            blue = int(self.rgb_tab.textboxes[2].text())
-        except:
-            return
-        if blue < 0:
-            blue = 0
-        elif blue > 255:
-            blue = 255
-        self.current_color.setRgb(self.current_color.red(), self.current_color.green(), blue)
-        self.on_color_updated()
-
+        self.on_text_changed(self.rgb_tab.textboxes[2], 255, self.current_rgbF if self.is_raw else self.current_rgb, 2, True)
 
     def on_hue_text_changed(self):
-        try:
-            hue = int(self.hsv_tab.textboxes[0].text())
-        except:
-            return
-        if hue < 0:
-            hue = 0
-        elif hue > 360:
-            hue = 360
-        self.current_color.setHsv(hue, self.current_color.saturation(), self.current_color.value())
-        self.on_color_updated()
-
+        self.on_text_changed(self.hsv_tab.textboxes[0], 359, self.current_hsvF if self.is_raw else self.current_hsv, 0, False)
 
     def on_saturation_text_changed(self):
-        try:
-            saturation = int(self.hsv_tab.textboxes[1].text())
-        except:
-            return
-        if saturation < 0:
-            saturation = 0
-        elif saturation > 255:
-            saturation = 255
-        self.current_color.setHsv(self.current_color.hue(), saturation, self.current_color.value())
-        self.on_color_updated()
-
+        self.on_text_changed(self.hsv_tab.textboxes[1], 255, self.current_hsvF if self.is_raw else self.current_hsv, 1, False)
 
     def on_value_text_changed(self):
+        self.on_text_changed(self.hsv_tab.textboxes[2], 255, self.current_hsvF if self.is_raw else self.current_hsv, 2, False)
+
+    def on_text_changed(self, textbox, max_value, current_colors, changing_index, is_rgb):
         try:
-            value = int(self.hsv_tab.textboxes[2].text())
+            value = float(textbox.text())
         except:
             return
+
+        max = 1.0 if self.is_raw else max_value
         if value < 0:
             value = 0
-        elif value > 255:
-            value = 255
-        self.current_color.setHsv(self.current_color.hue(), self.current_color.saturation(), value)
+            textbox.blockSignals(True)
+            textbox.setText("0")
+            textbox.blockSignals(False)
+        elif value > max:
+            value = max
+            textbox.blockSignals(True)
+            textbox.setText(str(max))
+            textbox.blockSignals(False)
+
+        color = self.current_color_with_value(value, changing_index, current_colors, is_rgb, True)
+        if self.current_color == color:
+            return
+
+        self.current_color = color
+        textbox.blockSignals(True)
         self.on_color_updated()
+
+
+    def current_color_with_value(self, value, changing_index, current_colors, is_rgb, check_raw) -> QColor:
+        v = [ 0, 0, 0 ]
+        for i in range(3):
+            if changing_index == i:
+                v[i] = value
+                continue
+            v[i] = current_colors[i]
+
+        if self.is_raw and check_raw:
+            if is_rgb:
+                color = QColor.fromRgbF(v[0], v[1], v[2])
+            else:
+                if v[0] == 1.0:
+                    v[0] = 0.999
+                color = QColor.fromHsvF(v[0], v[1], v[2])
+        else:
+            if is_rgb:
+                color = QColor.fromRgb(int(v[0]), int(v[1]), int(v[2]))
+            else:
+                color = QColor.fromHsv(int(v[0]), int(v[1]), int(v[2]))
+        return color
 
 
     def update_rgb_tab(self):
@@ -471,7 +347,7 @@ class MainWindow(QWidget):
         c3 = "stop:0 rgba({}, {}, 0, 255), stop:1 rgba({}, {}, 255, 255)".format(
             self.current_color.red(), self.current_color.green(), self.current_color.red(), self.current_color.green())
         arr = [ c1, c2, c3 ]
-        tarr = [ self.current_color.red(), self.current_color.green(), self.current_color.blue() ]
+        tarr = self.current_rgbF if self.is_raw else self.current_rgb
         self.update_tab(self.rgb_tab, arr, tarr)
 
 
@@ -483,7 +359,8 @@ class MainWindow(QWidget):
             stop:0.5 rgba(0, 255, 255, 255),
             stop:0.666 rgba(0, 0, 255, 255),
             stop:0.833 rgba(255, 0, 255, 255),
-            stop:1 rgba(255, 0, 0, 255)"""
+            stop:1 rgba(255, 0, 0, 255)
+        """
 
         saturated = QColor(self.current_color)
         unsaturated = QColor(self.current_color)
@@ -500,18 +377,21 @@ class MainWindow(QWidget):
             unvalued.red(), unvalued.green(), unvalued.blue(), valued.red(), valued.green(), valued.blue())
 
         arr = [ c1, c2, c3 ]
-        tarr = [ self.current_color.hue(), self.current_color.saturation(), self.current_color.value() ]
+        tarr = self.current_hsvF if self.is_raw else self.current_hsv
         self.update_tab(self.hsv_tab, arr, tarr)
 
 
     def update_tab(self, tab, arr, tarr):
         stylesheet_start = "background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0"
         for i in range(len(tab.frames)):
+            if tab.textboxes[i].signalsBlocked():
+                tab.textboxes[i].blockSignals(False)
+                continue
             stylesheet = stylesheet_start + ", {});".format(arr[i])
             tab.frames[i].setStyleSheet(stylesheet)
             tab.textboxes[i].blockSignals(True)
             if self.is_raw:
-                tab.textboxes[i].setText("{:.2f}".format(tarr[i] / (255.0 if i > 0 else 360.0)))
+                tab.textboxes[i].setText("{:.2f}".format(tarr[i]))
             else:
                 tab.textboxes[i].setText(str(tarr[i]))
             tab.textboxes[i].blockSignals(False)
@@ -520,7 +400,7 @@ class MainWindow(QWidget):
     def update_lines(self):
         inverted_color = QColor(self.current_color)
         inverted_color.setHsv(
-            (inverted_color.hue() + 180) % 360,
+            (inverted_color.hue() + 180) % 359,
             min(inverted_color.saturation(), inverted_color.value()),
             max(inverted_color.saturation(), 255 - inverted_color.value()))
         inverted_color.setHsv(inverted_color.hue(), 255, 255)
@@ -545,7 +425,7 @@ class MainWindow(QWidget):
 
         self.hue_line.setGeometry(
             0,
-            int((360 - self.current_color.hue()) * self.hue_gradient.height() / 360.0) - 1,
+            int((359 - self.current_color.hue()) * self.hue_gradient.height() / 359.0) - 1,
             self.hue_gradient.width(),
             2)
 
@@ -557,7 +437,7 @@ class MainWindow(QWidget):
         for i in range(len(tab.line_indicators)):
             ax = int(current_colors[i] / 255.0 * tab.frames[i].width())
             if tab.label == "HSV" and i == 0:
-                ax = int(ax * 255.0 / 360.0)
+                ax = int(ax * 255.0 / 359.0)
             tab.line_indicators[i].setGeometry(ax - 1, 0, 2, tab.frames[i].height())
             tab.line_indicators[i].setStyleSheet(stylesheet)
 
