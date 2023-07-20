@@ -11,7 +11,7 @@ class PickerWindow(QWidget):
     def __init__(self, parent):
         super(PickerWindow, self).__init__()
 
-        self.setWindowFlags(Qt.X11BypassWindowManagerHint | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint | Qt.Tool)
+        self.setWindowFlags(Qt.BypassWindowManagerHint | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
 
         width = 0
