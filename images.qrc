@@ -1,6 +1,6 @@
 
 <RCC>
   <qresource prefix="/" >
-    <file>picker_icon.svg</file>
+    <file>picker_icon.png</file>
   </qresource>
 </RCC>
