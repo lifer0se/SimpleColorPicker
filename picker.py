@@ -30,8 +30,6 @@ class PickerWindow(QWidget):
         self.move(0, 0)
         self.resize(width, height)
 
-        self.listener = Listener(on_release=self.keyReleaseEvent)
-        self.listener.start()
         self.installEventFilter(self)
         self.setMouseTracking(True)
 
@@ -50,8 +48,15 @@ class PickerWindow(QWidget):
         self.hide()
 
 
+    def closeEvent(self, event):
+        self.running = False
+        self.listener.stop()
+        self.timer.stop()
+
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.MouseButtonRelease:
+            self.listener.stop()
             self.timer.stop()
             self.running = False
             self.hide()
@@ -61,6 +66,8 @@ class PickerWindow(QWidget):
             self.parent.on_color_updated()
             return True
         if event.type() == QEvent.Show:
+            self.listener = Listener(on_release=self.keyReleaseEvent)
+            self.listener.start()
             self.running = True
             self.timer.start()
             return True
@@ -70,6 +77,7 @@ class PickerWindow(QWidget):
 
     def paintEvent(self, event):
         if not self.running:
+            self.listener.stop()
             self.timer.stop()
             self.hide()
             return
