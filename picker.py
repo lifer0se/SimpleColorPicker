@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QEvent
 from pynput.mouse import Controller
+from pynput.keyboard import Listener
 from screeninfo import get_monitors
 
 
@@ -29,6 +30,8 @@ class PickerWindow(QWidget):
         self.move(0, 0)
         self.resize(width, height)
 
+        self.listener = Listener(on_release=self.keyReleaseEvent)
+        self.listener.start()
         self.installEventFilter(self)
         self.setMouseTracking(True)
 
@@ -36,16 +39,29 @@ class PickerWindow(QWidget):
         self.timer = QTimer()
         self.timer.timeout.connect(self.update)
         self.timer.start(1)
+        self.running = True
+
+
+    def keyReleaseEvent(self, key):
+        if not self.isVisible():
+            return
+
+        self.running = False
+        self.hide()
 
 
     def eventFilter(self, source, event):
-        if (event.type() == QEvent.MouseButtonRelease):
-            self.hide()
+        if event.type() == QEvent.MouseButtonRelease:
             self.timer.stop()
+            self.running = False
+            self.hide()
+            if event.button() != Qt.LeftButton:
+                return False
             self.parent.current_color = self.current_color
             self.parent.on_color_updated()
             return True
         if event.type() == QEvent.Show:
+            self.running = True
             self.timer.start()
             return True
 
@@ -53,6 +69,11 @@ class PickerWindow(QWidget):
 
 
     def paintEvent(self, event):
+        if not self.running:
+            self.timer.stop()
+            self.hide()
+            return
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
 

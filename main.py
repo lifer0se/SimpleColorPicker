@@ -30,14 +30,15 @@ class MainWindow(QWidget):
         super(MainWindow, self).__init__()
 
         self.picker_window = picker.PickerWindow(self)
-        self.picker_window.setWindowTitle("QtPicker")
+        self.picker_window.setWindowTitle("SimpleColorMagnifier")
 
-        self.setWindowTitle("QtPicker")
+        self.setWindowTitle("SimpleColorPicker")
         self.setStyleSheet("background: #383C4A; color: #CFD6DF")
         self.setWindowFlags(Qt.Tool | Qt.MSWindowsFixedSizeDialogHint)
         self.setMouseTracking(True)
         self.installEventFilter(self)
         self.setFixedSize(417, 578)
+        self.setWindowIcon(QIcon(':picker_icon.png'))
         self.is_raw = False
         main_gradient_size = 350
         side_gradient_size = 30
@@ -193,8 +194,8 @@ class MainWindow(QWidget):
 
 
     def on_gradient_click(self, event):
-        self.on_click(event.pos().x(), self.black_overlay.width(), 255, 1, self.current_hsv, False)
-        self.on_click(event.pos().y(), self.black_overlay.height(), 255, 2, self.current_hsv, False, True)
+        self.on_click(event.pos().x(), self.main_gradient.width(), 255, 1, self.current_hsv, False)
+        self.on_click(event.pos().y(), self.main_gradient.height(), 255, 2, self.current_hsv, False, True)
 
     def on_hue_gradient_click(self, event):
         self.on_click(event.pos().y(), self.hue_gradient.height(), 359, 0, self.current_hsv, False, True)
@@ -412,15 +413,15 @@ class MainWindow(QWidget):
         self.hue_line.setStyleSheet(stylesheet)
 
         self.vertical_line.setGeometry(
-            int(self.current_color.saturation() * self.black_overlay.width() / 255.0) - 1,
+            int(self.current_color.saturation() * self.main_gradient.width() / 255.0) - 1,
             0,
             2,
-            self.black_overlay.height())
+            self.main_gradient.height())
 
         self.horizontal_line.setGeometry(
             0,
-            int((255 - self.current_color.value()) * self.black_overlay.height() / 255.0) - 1,
-            self.black_overlay.width(),
+            int((255 - self.current_color.value()) * self.main_gradient.height() / 255.0) - 1,
+            self.main_gradient.width(),
             2)
 
         self.hue_line.setGeometry(
