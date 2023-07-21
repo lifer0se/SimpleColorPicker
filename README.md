@@ -1,6 +1,6 @@
 # SimpleColorPicker
-### A minimal color picker written in python
-![rice](https://github.com/lifer0se/SimpleColorPicker/assets/16085280/70497190-946d-4ff9-9bc2-6b5e64261f10)
+### A minimal color picker
+![SimpleColorPicker w Magnifier](https://github.com/lifer0se/SimpleColorPicker/assets/16085280/e0ef6d7a-7796-4092-a824-70310dce9ca7)
 ### Featutes
 - RGB and HSV support
 - RAW values support
