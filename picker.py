@@ -1,10 +1,9 @@
 #!/bin/python
 from PyQt5.QtWidgets import QApplication, QWidget
-from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath
+from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath, QPixmap
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QEvent
 from pynput.mouse import Controller
 from pynput.keyboard import Listener
-from screeninfo import get_monitors
 
 
 class PickerWindow(QWidget):
@@ -19,13 +18,13 @@ class PickerWindow(QWidget):
         height = 0
         largest_x = -1
         largest_y = -1
-        for m in get_monitors():
-            if m.x > largest_x:
-                largest_x = m.x
-                width = m.x + m.width
-            if m.y > largest_y:
-                largest_y = m.y
-                height = m.y + m.height
+        for m in QApplication.screens():
+            if m.availableGeometry().x() > largest_x:
+                largest_x = m.availableGeometry().x()
+                width = m.availableGeometry().x() + m.availableGeometry().width()
+            if m.availableGeometry().y() > largest_y:
+                largest_y = m.availableGeometry().y()
+                height = m.availableGeometry().y() + m.availableGeometry().height()
 
         self.move(0, 0)
         self.resize(width, height)
@@ -35,9 +34,12 @@ class PickerWindow(QWidget):
 
         self.parent = parent
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update)
+        self.timer.timeout.connect(self.update_painter)
         self.timer.start(1)
         self.running = True
+        self.magnifier_size = 221
+        self.cursorX = -1
+        self.cursorY = -1
 
 
     def keyReleaseEvent(self, key):
@@ -52,6 +54,18 @@ class PickerWindow(QWidget):
         self.running = False
         self.listener.stop()
         self.timer.stop()
+
+
+    def update_painter(self):
+        if not self.running:
+            self.listener.stop()
+            self.timer.stop()
+            self.hide()
+            return
+
+        self.cursorX = Controller().position[0]
+        self.cursorY = Controller().position[1]
+        self.update()
 
 
     def eventFilter(self, source, event):
@@ -76,55 +90,66 @@ class PickerWindow(QWidget):
 
 
     def paintEvent(self, event):
-        if not self.running:
-            self.listener.stop()
-            self.timer.stop()
-            self.hide()
-            return
+        current_screen = QApplication.screenAt(QPoint(self.cursorX, self.cursorY))
+        current_screen_x = self.cursorX
+        if current_screen_x > current_screen.size().width():
+            current_screen_x %= current_screen.size().width()
+        current_screen_y = self.cursorY
+        if current_screen_y > current_screen.size().height():
+            current_screen_y %= current_screen.size().height()
+
+        center_rect_size = 6
+        offsetX = 20 if (self.cursorX + 20 + self.magnifier_size - 20 + 40) < self.width() else -self.magnifier_size - 40
+        offsetY = 20 if (self.cursorY + 20 + self.magnifier_size - 20 + 40) < self.height() else -(self.magnifier_size + 10)
+        top_rect = QRect(self.cursorX + offsetX + self.magnifier_size - 20, self.cursorY + offsetY, 40, 30)
+        center_rect = QRect(int(self.cursorX + offsetX + self.magnifier_size * 0.5 - center_rect_size * 0.5) - 1,
+                            int(self.cursorY + offsetY + self.magnifier_size * 0.5 - center_rect_size * 0.5) - 1,
+                            center_rect_size,
+                            center_rect_size)
+
+        image_size = self.magnifier_size * 0.2
+        image_half_size = self.magnifier_size * 0.1
+        pixmap = current_screen.grabWindow(0, current_screen_x - int(image_half_size), current_screen_y - int(image_half_size), int(image_size), int(image_size))
+
+        if self.cursorX - image_half_size < 0:
+            pixmap = self.black_out_pixmap(pixmap, 0, image_size - int(self.cursorX + image_half_size), 0, image_size)
+        elif self.cursorX + image_half_size > self.width():
+            pixmap = self.black_out_pixmap(pixmap, self.width() - int(self.cursorX - image_half_size + 2), image_size, 0, image_size)
+        if self.cursorY - image_half_size < 0:
+            pixmap = self.black_out_pixmap(pixmap, 0, image_size, 0, image_size - int(self.cursorY + image_half_size))
+        elif self.cursorY + image_half_size > self.height():
+            pixmap = self.black_out_pixmap(pixmap, 0, image_size, self.height() - int(self.cursorY - image_half_size + 2), image_size)
+        pixmap = pixmap.scaled(self.magnifier_size, self.magnifier_size)
+
+        self.current_color = QColor(pixmap.toImage().pixel(int(self.magnifier_size * 0.5 - center_rect_size * 0.5),
+                                                           int(self.magnifier_size * 0.5 - center_rect_size * 0.5)))
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
 
-        size = 221
-        cursorX = Controller().position[0]
-        cursorY = Controller().position[1]
-        current_screen = QApplication.screenAt(QPoint(cursorX, cursorY))
-        current_screen_x = cursorX - int(size * 0.1)
-        if current_screen_x > current_screen.size().width():
-            current_screen_x %= current_screen.size().width()
-        current_screen_y = cursorY - int(size * 0.1)
-        if current_screen_y > current_screen.size().height():
-            current_screen_y %= current_screen.size().height()
-        pixmap = current_screen.grabWindow(0, current_screen_x, current_screen_y, int(size * 0.2), int(size * 0.2))
-        pixmap = pixmap.scaled(size, size)
-
-        center_rect_size = 6
-        offsetX = 20 if (cursorX + 20 + size - 20 + 40) < self.width() else -size - 40
-        offsetY = 20 if (cursorY + 20 + size - 20 + 40) < self.height() else -(size - 20)
-        top_rect = QRect(cursorX + offsetX + size - 20, cursorY + offsetY, 40, 30)
-        center_rect = QRect(int(cursorX + offsetX + size * 0.5 - center_rect_size * 0.5) - 1,
-                            int(cursorY + offsetY + size * 0.5 - center_rect_size * 0.5) - 1,
-                            center_rect_size,
-                            center_rect_size)
-
-        pen = QPen(QColor("#FFFFFF"))
+        pen = QPen(QColor("#FFF"))
         pen.setWidth(2)
         painter.setPen(pen)
 
-        self.current_color = QColor(pixmap.toImage().pixel(int(size * 0.5 - center_rect_size * 0.5), int(size * 0.5 - center_rect_size * 0.5)))
         painter.fillRect(top_rect, self.current_color)
         painter.drawRect(top_rect)
 
-        pen = QPen(QColor("#FFFFFF"))
         pen.setWidth(1)
         painter.setPen(pen)
         circlePath = QPainterPath()
-        circlePath.addEllipse(cursorX + offsetX, cursorY + offsetY, size, size)
+        circlePath.addEllipse(self.cursorX + offsetX, self.cursorY + offsetY, self.magnifier_size, self.magnifier_size)
         painter.setClipPath(circlePath)
-        painter.drawPixmap(cursorX + offsetX, cursorY + offsetY, pixmap)
+        painter.drawPixmap(self.cursorX + offsetX, self.cursorY + offsetY, pixmap)
         painter.drawRect(center_rect)
 
-        pen = QPen(QColor("#FFFFFF"))
-        pen.setWidth(4)
+        pen.setWidth(6)
         painter.setPen(pen)
-        painter.drawEllipse(cursorX + offsetX, cursorY + offsetY, size, size)
+        painter.drawEllipse(self.cursorX + offsetX, self.cursorY + offsetY, self.magnifier_size, self.magnifier_size)
+
+
+    def black_out_pixmap(self, pixmap, from_width, to_width, from_height, to_height):
+        image = pixmap.toImage()
+        for x in range(int(from_width), int(to_width)):
+            for y in range(int(from_height), int(to_height)):
+                image.setPixelColor(x, y, QColor("#000"))
+        return QPixmap.fromImage(image)
