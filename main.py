@@ -1,8 +1,8 @@
 #!/bin/python
 from PyQt5.QtWidgets import QApplication, QWidget, QFrame, QGridLayout, QHBoxLayout, QTabWidget
 from PyQt5.QtWidgets import QCheckBox, QPushButton, QLabel, QLineEdit, QSpacerItem, QSizePolicy
-from PyQt5.QtGui import QIcon, QColor
-from PyQt5.QtCore import Qt, QEvent
+from PyQt5.QtGui import QIcon, QColor, QRegExpValidator
+from PyQt5.QtCore import Qt, QEvent, QRegExp
 import sys
 import os
 import picker
@@ -39,7 +39,6 @@ class MainWindow(QWidget):
         self.installEventFilter(self)
         self.setFixedSize(417, 578)
         self.setWindowIcon(QIcon(':picker_icon.png'))
-        self.is_raw = False
         main_gradient_size = 350
         side_gradient_size = 30
 
@@ -107,6 +106,9 @@ class MainWindow(QWidget):
         self.hex_line_edit.setFixedWidth(70)
         self.hex_line_edit.setAlignment(Qt.AlignRight)
         self.hex_line_edit.textChanged.connect(self.on_hex_value_changed)
+        reg_ex = QRegExp("^#?([A-Fa-f0-9]){,6}$")
+        input_validator = QRegExpValidator(reg_ex, self.hex_line_edit)
+        self.hex_line_edit.setValidator(input_validator)
 
         self.raw_check_box = QCheckBox("RAW")
         self.raw_check_box.setFixedSize(50, 20)
@@ -138,10 +140,6 @@ class MainWindow(QWidget):
 
 
     def eventFilter(self, source, event):
-        if event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_Escape:
-                self.update_lines()
-                return True
         if event.type() == QEvent.Show:
             self.on_color_updated()
             return True
@@ -167,13 +165,17 @@ class MainWindow(QWidget):
         self.update_hsv_tab()
         self.update_lines()
 
-        self.hex_line_edit.blockSignals(True)
-        self.hex_line_edit.setText(self.current_color.name().upper())
-        self.hex_line_edit.blockSignals(False)
+        if self.hex_line_edit.text() != self.current_color.name().upper():
+            self.set_text_with_blocked_signals(self.hex_line_edit, self.current_color.name().upper())
 
 
     def on_raw_changed(self):
-        self.is_raw = self.raw_check_box.checkState()
+        for line_edit in self.rgb_tab.textboxes:
+            if self.raw_check_box.checkState():
+                self.set_raw_validator(line_edit)
+            else:
+                self.set_non_raw_validator(line_edit)
+
         self.update_rgb_tab()
         self.update_hsv_tab()
 
@@ -183,14 +185,29 @@ class MainWindow(QWidget):
 
 
     def on_hex_value_changed(self):
-        if len(self.hex_line_edit.text()) > 0:
-            self.hex_line_edit.setText(self.hex_line_edit.text().upper())
-        if self.hex_line_edit.text()[0] != '#':
-            self.hex_line_edit.setText('#' + self.hex_line_edit.text())
-        if len(self.hex_line_edit.text()) < 7:
+        text = self.hex_line_edit.text()
+        if len(text) == 0:
+            text = self.set_text_with_blocked_signals(self.hex_line_edit, '#')
+            self.hex_line_edit.setCursorPosition(1)
+        else:
+            text = self.set_text_with_blocked_signals(self.hex_line_edit, text.upper())
+
+        if text[0] != '#':
+            text = self.set_text_with_blocked_signals(self.hex_line_edit, '#' + self.hex_line_edit.text())
+        if len(text) < 7:
             return
+
         self.current_color = QColor(self.hex_line_edit.text())
         self.on_color_updated()
+
+
+    def set_text_with_blocked_signals(self, line_edit, text) -> str:
+        pos = line_edit.cursorPosition()
+        line_edit.blockSignals(True)
+        line_edit.setText(text)
+        line_edit.setCursorPosition(pos)
+        line_edit.blockSignals(False)
+        return text
 
 
     def on_gradient_click(self, event):
@@ -273,22 +290,22 @@ class MainWindow(QWidget):
 
 
     def on_red_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[0], 255, self.current_rgbF if self.is_raw else self.current_rgb, 0, True)
+        self.on_text_changed(self.rgb_tab.textboxes[0], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 0, True)
 
     def on_green_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[1], 255, self.current_rgbF if self.is_raw else self.current_rgb, 1, True)
+        self.on_text_changed(self.rgb_tab.textboxes[1], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 1, True)
 
     def on_blue_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[2], 255, self.current_rgbF if self.is_raw else self.current_rgb, 2, True)
+        self.on_text_changed(self.rgb_tab.textboxes[2], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 2, True)
 
     def on_hue_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[0], 359, self.current_hsvF if self.is_raw else self.current_hsv, 0, False)
+        self.on_text_changed(self.hsv_tab.textboxes[0], 359, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 0, False)
 
     def on_saturation_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[1], 255, self.current_hsvF if self.is_raw else self.current_hsv, 1, False)
+        self.on_text_changed(self.hsv_tab.textboxes[1], 255, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 1, False)
 
     def on_value_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[2], 255, self.current_hsvF if self.is_raw else self.current_hsv, 2, False)
+        self.on_text_changed(self.hsv_tab.textboxes[2], 255, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 2, False)
 
     def on_text_changed(self, textbox, max_value, current_colors, changing_index, is_rgb):
         try:
@@ -296,7 +313,7 @@ class MainWindow(QWidget):
         except:
             return
 
-        max = 1.0 if self.is_raw else max_value
+        max = 1.0 if self.raw_check_box.checkState() else max_value
         if value < 0:
             value = 0
             textbox.blockSignals(True)
@@ -325,7 +342,7 @@ class MainWindow(QWidget):
                 continue
             v[i] = current_colors[i]
 
-        if self.is_raw and check_raw:
+        if self.raw_check_box.checkState() and check_raw:
             if is_rgb:
                 color = QColor.fromRgbF(v[0], v[1], v[2])
             else:
@@ -348,7 +365,7 @@ class MainWindow(QWidget):
         c3 = "stop:0 rgba({}, {}, 0, 255), stop:1 rgba({}, {}, 255, 255)".format(
             self.current_color.red(), self.current_color.green(), self.current_color.red(), self.current_color.green())
         arr = [ c1, c2, c3 ]
-        tarr = self.current_rgbF if self.is_raw else self.current_rgb
+        tarr = self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb
         self.update_tab(self.rgb_tab, arr, tarr)
 
 
@@ -378,7 +395,7 @@ class MainWindow(QWidget):
             unvalued.red(), unvalued.green(), unvalued.blue(), valued.red(), valued.green(), valued.blue())
 
         arr = [ c1, c2, c3 ]
-        tarr = self.current_hsvF if self.is_raw else self.current_hsv
+        tarr = self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv
         self.update_tab(self.hsv_tab, arr, tarr)
 
 
@@ -391,8 +408,8 @@ class MainWindow(QWidget):
             stylesheet = stylesheet_start + ", {});".format(arr[i])
             tab.frames[i].setStyleSheet(stylesheet)
             tab.textboxes[i].blockSignals(True)
-            if self.is_raw:
-                tab.textboxes[i].setText("{:.2f}".format(tarr[i]))
+            if self.raw_check_box.checkState():
+                tab.textboxes[i].setText("{:.3f}".format(tarr[i]))
             else:
                 tab.textboxes[i].setText(str(tarr[i]))
             tab.textboxes[i].blockSignals(False)
@@ -450,6 +467,7 @@ class MainWindow(QWidget):
         widget = QWidget()
         widget.setLayout(layout)
         tab = Tab(widget, name)
+        reg_ex = QRegExp("[0-9]{,3}")
         for i in range(3):
             label = QLabel(name[i:i + 1])
             label.setFixedWidth(10)
@@ -467,6 +485,7 @@ class MainWindow(QWidget):
             textbox = QLineEdit()
             textbox.setFixedSize(45, 20)
             textbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            self.set_non_raw_validator(textbox)
             textbox.textChanged.connect(text_change_functions[i])
             textbox.wheelEvent = gradient_scroll_functions[i]
             layout.addWidget(textbox, i, 2)
@@ -476,6 +495,17 @@ class MainWindow(QWidget):
             tab.line_indicators.append(line_indicator)
 
         return tab
+
+
+    def set_raw_validator(self, line_edit):
+        reg_ex = QRegExp("^([01.]{,1}|[01].)[0-9]{,3}")
+        input_validator = QRegExpValidator(reg_ex, line_edit)
+        line_edit.setValidator(input_validator)
+
+    def set_non_raw_validator(self, line_edit):
+        reg_ex = QRegExp("[0-9]{,3}")
+        input_validator = QRegExpValidator(reg_ex, line_edit)
+        line_edit.setValidator(input_validator)
 
 
     def closeEvent(self, event):
