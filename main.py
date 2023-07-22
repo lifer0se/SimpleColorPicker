@@ -1,10 +1,10 @@
 #!/bin/python
 from PyQt5.QtWidgets import QApplication, QWidget, QFrame, QGridLayout, QHBoxLayout, QTabWidget
 from PyQt5.QtWidgets import QCheckBox, QPushButton, QLabel, QLineEdit, QSpacerItem, QSizePolicy
-from PyQt5.QtGui import QIcon, QColor, QRegExpValidator
+from PyQt5.QtGui import QIcon, QColor, QRegExpValidator, QMouseEvent
 from PyQt5.QtCore import Qt, QEvent, QRegExp
+from functools import partial
 import sys
-import os
 import picker
 import images_qr
 
@@ -13,14 +13,14 @@ class Tab:
     widget: QWidget
     label: str
     frames = []
-    textboxes = []
+    line_edits = []
     line_indicators = []
 
     def __init__(self, widget, label):
         self.widget = widget
         self.label = label
         self.frames = []
-        self.textboxes = []
+        self.line_edits = []
         self.line_indicators = []
 
 
@@ -34,13 +34,17 @@ class MainWindow(QWidget):
 
         self.setWindowTitle("SimpleColorPicker")
         self.setStyleSheet("background: #383C4A; color: #CFD6DF")
-        self.setWindowFlags(Qt.Tool | Qt.MSWindowsFixedSizeDialogHint)
+        self.setWindowFlags(Qt.WindowType.Tool)
         self.setMouseTracking(True)
         self.installEventFilter(self)
-        self.setFixedSize(417, 578)
+        self.setFixedSize(437, 598)
         self.setWindowIcon(QIcon(':picker_icon.png'))
-        main_gradient_size = 350
+        main_gradient_size = 370
         side_gradient_size = 30
+
+
+        self.current_rgb = []
+        self.current_hsv = []
 
         self.main_gradient = QFrame()
         self.main_gradient.setFixedSize(main_gradient_size, main_gradient_size)
@@ -66,33 +70,32 @@ class MainWindow(QWidget):
         self.black_overlay = QFrame()
         self.black_overlay.setFixedSize(main_gradient_size, main_gradient_size)
         self.black_overlay.setStyleSheet(black_overlay_stylesheet)
-        self.black_overlay.mousePressEvent = self.on_gradient_click
-        self.black_overlay.mouseMoveEvent = self.on_gradient_click
-        self.black_overlay.wheelEvent = self.on_gradient_scroll
+        self.black_overlay.mousePressEvent = self.on_main_gradient_click
+        self.black_overlay.mouseMoveEvent = self.on_main_gradient_click
+        self.black_overlay.wheelEvent = self.on_main_gradient_scroll
         self.vertical_line = QFrame(self.black_overlay)
         self.horizontal_line = QFrame(self.black_overlay)
 
         self.hue_gradient = QFrame()
         self.hue_gradient.setFixedSize(side_gradient_size, main_gradient_size - 2)
         self.hue_gradient.setStyleSheet(hue_gradient_stylesheet)
-        self.hue_gradient.mousePressEvent = self.on_hue_gradient_click
-        self.hue_gradient.mouseMoveEvent = self.on_hue_gradient_click
-        self.hue_gradient.wheelEvent = self.on_side_hue_scroll
+
+        click_func = partial(self.on_gradient_click, self.hue_gradient.height(), 359, 0, False, True, True)
+        scroll_func = partial(self.on_gradient_scroll, 359, 0, False, False, True)
+        self.hue_gradient.mousePressEvent = click_func
+        self.hue_gradient.mouseMoveEvent = click_func
+        self.hue_gradient.wheelEvent = scroll_func
         self.hue_line = QFrame(self.hue_gradient)
 
-        rgb_gradient_click_functions = [ self.on_red_gradient_clicked, self.on_green_gradient_clicked, self.on_blue_gradient_clicked ]
-        hsv_gradient_click_functions = [ self.on_hue_gradient_clicked, self.on_saturation_gradient_clicked, self.on_value_gradient_clicked ]
-        rgb_wheel_scroll_functions = [ self.on_red_scroll, self.on_green_scroll, self.on_blue_scroll ]
-        hsv_wheel_scroll_functions = [ self.on_hue_scroll, self.on_saturation_scroll, self.on_value_scroll ]
-        rgb_text_change_functions = [ self.on_red_text_changed, self.on_green_text_changed, self.on_blue_text_changed ]
-        hsv_text_change_functions = [ self.on_hue_text_changed, self.on_saturation_text_changed, self.on_value_text_changed ]
-        self.rgb_tab = self.generate_tab_widget("RGB", rgb_gradient_click_functions, rgb_wheel_scroll_functions, rgb_text_change_functions)
-        self.hsv_tab = self.generate_tab_widget("HSV", hsv_gradient_click_functions, hsv_wheel_scroll_functions, hsv_text_change_functions)
+        self.rgb_tab = self.generate_tab_widget("RGB", [ 255, 255, 255 ], True)
+        self.hsv_tab = self.generate_tab_widget("HSV", [ 360, 255, 255 ], False)
+        self.values_tab = self.generate_values_tab()
 
         self.tab_widget = QTabWidget()
         self.tab_widget.setStyleSheet("QTabWidget::pane { border: 0; }")
-        self.tab_widget.addTab(self.rgb_tab.widget, self.rgb_tab.label)
-        self.tab_widget.addTab(self.hsv_tab.widget, self.hsv_tab.label)
+        self.tab_widget.addTab(self.rgb_tab.widget, "RGB")
+        self.tab_widget.addTab(self.hsv_tab.widget, "HSV")
+        self.tab_widget.addTab(self.values_tab, "Values")
 
         self.current_color_frame = QFrame()
         self.current_color_frame.setFixedSize(int(main_gradient_size * 0.3), side_gradient_size)
@@ -104,7 +107,8 @@ class MainWindow(QWidget):
 
         self.hex_line_edit = QLineEdit()
         self.hex_line_edit.setFixedWidth(70)
-        self.hex_line_edit.setAlignment(Qt.AlignRight)
+        self.hex_line_edit.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.hex_line_edit.mouseReleaseEvent = lambda a0: self.on_line_edit_clicked(a0, self.hex_line_edit)
         self.hex_line_edit.textChanged.connect(self.on_hex_value_changed)
         reg_ex = QRegExp("^#?([A-Fa-f0-9]){,6}$")
         input_validator = QRegExpValidator(reg_ex, self.hex_line_edit)
@@ -120,7 +124,7 @@ class MainWindow(QWidget):
         bottom_layout.addSpacerItem(QSpacerItem(20, 10, QSizePolicy.Expanding))
         bottom_layout.addWidget(self.raw_check_box)
         bottom_layout.addWidget(self.hex_line_edit)
-        bottom_layout.setAlignment(Qt.AlignCenter)
+        bottom_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         bottom_layout.setContentsMargins(0, 0, 0, 0)
         bottom_widget = QWidget()
         bottom_widget.setLayout(bottom_layout)
@@ -140,7 +144,7 @@ class MainWindow(QWidget):
 
 
     def eventFilter(self, source, event):
-        if event.type() == QEvent.Show:
+        if event.type() == QEvent.Type.Show:
             self.on_color_updated()
             return True
         return False
@@ -163,6 +167,7 @@ class MainWindow(QWidget):
 
         self.update_rgb_tab()
         self.update_hsv_tab()
+        self.update_values_tab()
         self.update_lines()
 
         if self.hex_line_edit.text() != self.current_color.name().upper():
@@ -170,7 +175,7 @@ class MainWindow(QWidget):
 
 
     def on_raw_changed(self):
-        for line_edit in self.rgb_tab.textboxes:
+        for line_edit in self.rgb_tab.line_edits:
             if self.raw_check_box.checkState():
                 self.set_raw_validator(line_edit)
             else:
@@ -210,36 +215,18 @@ class MainWindow(QWidget):
         return text
 
 
-    def on_gradient_click(self, event):
-        self.on_click(event.pos().x(), self.main_gradient.width(), 255, 1, self.current_hsv, False)
-        self.on_click(event.pos().y(), self.main_gradient.height(), 255, 2, self.current_hsv, False, True)
+    def on_main_gradient_click(self, a0: QMouseEvent):
+        self.on_gradient_click(self.main_gradient.width(), 255, 1, False, False, False, a0)
+        self.on_gradient_click(self.main_gradient.height(), 255, 2, False, True, True, a0)
 
-    def on_hue_gradient_click(self, event):
-        self.on_click(event.pos().y(), self.hue_gradient.height(), 359, 0, self.current_hsv, False, True)
 
-    def on_red_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.rgb_tab.frames[0].width(), 255, 0, self.current_rgb, True)
-
-    def on_green_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.rgb_tab.frames[1].width(), 255, 1, self.current_rgb, True)
-
-    def on_blue_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.rgb_tab.frames[2].width(), 255, 2, self.current_rgb, True)
-
-    def on_hue_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.hsv_tab.frames[0].width(), 359, 0, self.current_hsv, False)
-
-    def on_saturation_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.hsv_tab.frames[1].width(), 255, 1, self.current_hsv, False)
-
-    def on_value_gradient_clicked(self, event):
-        self.on_click(event.pos().x(), self.hsv_tab.frames[2].width(), 255, 2, self.current_hsv, False)
-
-    def on_click(self, pos, frame_width, max_value, changing_index, current_colors, is_rgb, invert: bool = False):
-        value = int(float(pos) * max_value / frame_width)
-        if invert:
+    def on_gradient_click(self, frame_size, max_value, changing_index, is_rgb, is_vertical, should_invert, a0):
+        value = float(a0.pos().x() if not is_vertical else a0.pos().y())
+        value = int(value * max_value / frame_size)
+        if should_invert:
             value = max_value - value
         value = max(0, min(max_value, value))
+        current_colors = self.current_rgb if is_rgb else self.current_hsv
         color = self.current_color_with_value(value, changing_index, current_colors, is_rgb, False)
         if self.current_color == color:
             return
@@ -248,35 +235,22 @@ class MainWindow(QWidget):
         self.on_color_updated()
 
 
-    def on_gradient_scroll(self, event):
-        if event.angleDelta().y() != 0:
-            self.on_scroll(event.angleDelta().y(), self.current_color.saturation(), 255, 1, self.current_hsv, False)
-        if event.angleDelta().x() != 0:
-            self.on_scroll(event.angleDelta().x(), self.current_color.value(), 255, 2, self.current_hsv, False)
+    def on_line_edit_clicked(self, line_edit, a0):
+        line_edit.setSelection(0, len(line_edit.text()))
 
-    def on_side_hue_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.hue(), 359, 0, self.current_hsv, False, True)
 
-    def on_red_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.red(), 255, 0, self.current_rgb, True)
+    def on_main_gradient_scroll(self, a0):
+        if a0.angleDelta().y() != 0:
+            self.on_gradient_scroll(255, 1, False, False, True, a0)
+        if a0.angleDelta().x() != 0:
+            self.on_gradient_scroll(255, 2, False, True, False, a0)
 
-    def on_green_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.green(), 255, 1, self.current_rgb, True)
 
-    def on_blue_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.blue(), 255, 2, self.current_rgb, True)
-
-    def on_hue_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.hue(), 359, 0, self.current_hsv, False)
-
-    def on_saturation_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.saturation(), 255, 1, self.current_hsv, False)
-
-    def on_value_scroll(self, event):
-        self.on_scroll(event.angleDelta().y(), self.current_color.value(), 255, 2, self.current_hsv, False)
-
-    def on_scroll(self, angleDelta, current_value, max_value, changing_index, current_colors, is_rgb, invert_scroll: bool = False):
-        delta = 1 if angleDelta > 0 else -1
+    def on_gradient_scroll(self, max_value, changing_index, is_rgb, is_horizontal, invert_scroll, a0):
+        current_colors = self.current_rgb if is_rgb else self.current_hsv
+        current_value = current_colors[changing_index]
+        angle = a0.angleDelta().x() if is_horizontal else a0.angleDelta().y()
+        delta = 1 if angle > 0 else -1
         if invert_scroll:
             delta = -delta
         value = current_value - int(delta)
@@ -289,53 +263,37 @@ class MainWindow(QWidget):
         self.on_color_updated()
 
 
-    def on_red_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[0], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 0, True)
-
-    def on_green_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[1], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 1, True)
-
-    def on_blue_text_changed(self):
-        self.on_text_changed(self.rgb_tab.textboxes[2], 255, self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb, 2, True)
-
-    def on_hue_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[0], 359, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 0, False)
-
-    def on_saturation_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[1], 255, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 1, False)
-
-    def on_value_text_changed(self):
-        self.on_text_changed(self.hsv_tab.textboxes[2], 255, self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv, 2, False)
-
-    def on_text_changed(self, textbox, max_value, current_colors, changing_index, is_rgb):
+    def on_text_changed(self, line_edit, max_value, changing_index, is_rgb):
         try:
-            value = float(textbox.text())
+            value = float(line_edit.text())
         except:
             return
 
         max = 1.0 if self.raw_check_box.checkState() else max_value
         if value < 0:
             value = 0
-            textbox.blockSignals(True)
-            textbox.setText("0")
-            textbox.blockSignals(False)
+            line_edit.blockSignals(True)
+            line_edit.setText("0")
+            line_edit.blockSignals(False)
         elif value > max:
             value = max
-            textbox.blockSignals(True)
-            textbox.setText(str(max))
-            textbox.blockSignals(False)
+            line_edit.blockSignals(True)
+            line_edit.setText(str(max))
+            line_edit.blockSignals(False)
 
+        current_colors = self.current_rgb if is_rgb else self.current_hsv
         color = self.current_color_with_value(value, changing_index, current_colors, is_rgb, True)
         if self.current_color == color:
             return
 
         self.current_color = color
-        textbox.blockSignals(True)
+        line_edit.blockSignals(True)
         self.on_color_updated()
 
 
+
     def current_color_with_value(self, value, changing_index, current_colors, is_rgb, check_raw) -> QColor:
-        v = [ 0, 0, 0 ]
+        v = [ 0.0, 0.0, 0.0 ]
         for i in range(3):
             if changing_index == i:
                 v[i] = value
@@ -366,7 +324,7 @@ class MainWindow(QWidget):
             self.current_color.red(), self.current_color.green(), self.current_color.red(), self.current_color.green())
         arr = [ c1, c2, c3 ]
         tarr = self.current_rgbF if self.raw_check_box.checkState() else self.current_rgb
-        self.update_tab(self.rgb_tab, arr, tarr)
+        self.update_color_tab(self.rgb_tab, arr, tarr)
 
 
     def update_hsv_tab(self):
@@ -396,23 +354,31 @@ class MainWindow(QWidget):
 
         arr = [ c1, c2, c3 ]
         tarr = self.current_hsvF if self.raw_check_box.checkState() else self.current_hsv
-        self.update_tab(self.hsv_tab, arr, tarr)
+        self.update_color_tab(self.hsv_tab, arr, tarr)
 
 
-    def update_tab(self, tab, arr, tarr):
+    def update_color_tab(self, tab, arr, tarr):
         stylesheet_start = "background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0"
         for i in range(len(tab.frames)):
-            if tab.textboxes[i].signalsBlocked():
-                tab.textboxes[i].blockSignals(False)
+            if tab.line_edits[i].signalsBlocked():
+                tab.line_edits[i].blockSignals(False)
                 continue
             stylesheet = stylesheet_start + ", {});".format(arr[i])
             tab.frames[i].setStyleSheet(stylesheet)
-            tab.textboxes[i].blockSignals(True)
+            tab.line_edits[i].blockSignals(True)
             if self.raw_check_box.checkState():
-                tab.textboxes[i].setText("{:.3f}".format(tarr[i]))
+                tab.line_edits[i].setText("{:.3f}".format(tarr[i]))
             else:
-                tab.textboxes[i].setText(str(tarr[i]))
-            tab.textboxes[i].blockSignals(False)
+                tab.line_edits[i].setText(str(tarr[i]))
+            tab.line_edits[i].blockSignals(False)
+
+
+    def update_values_tab(self):
+        self.values_hex_line_edit.setText("{}".format(self.current_color.name()))
+        self.values_rgb_line_edit.setText("{}, {}, {}".format(self.current_color.red(), self.current_color.green(), self.current_color.blue()))
+        self.values_rgbf_line_edit.setText("{:.3f}, {:.3f}, {:.3f}".format(self.current_color.redF(), self.current_color.greenF(), self.current_color.blueF()))
+        self.values_hsv_line_edit.setText("{}, {}, {}".format(self.current_color.hue(), self.current_color.saturation(), self.current_color.value()))
+        self.values_hsvf_line_edit.setText("{:.3f}, {:.3f}, {:.3f}".format(self.current_color.hueF(), self.current_color.saturationF(), self.current_color.valueF()))
 
 
     def update_lines(self):
@@ -460,36 +426,42 @@ class MainWindow(QWidget):
             tab.line_indicators[i].setStyleSheet(stylesheet)
 
 
-    def generate_tab_widget(self, name, gradient_click_functions, gradient_scroll_functions, text_change_functions) -> Tab:
+    def generate_tab_widget(self, name, max_values, is_rgb) -> Tab:
         layout = QGridLayout()
-        layout.setSpacing(10)
+        layout.setHorizontalSpacing(10)
+        layout.setVerticalSpacing(7)
         layout.setContentsMargins(0, 20, 0, 15)
         widget = QWidget()
         widget.setLayout(layout)
         tab = Tab(widget, name)
-        reg_ex = QRegExp("[0-9]{,3}")
         for i in range(3):
             label = QLabel(name[i:i + 1])
             label.setFixedWidth(10)
-            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            label.setAlignment(Qt.AlignmentFlag(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter))
             layout.addWidget(label, i, 0)
 
+            frame_width = 310
             frame = QFrame()
-            frame.setFixedSize(310, 20)
-            frame.mousePressEvent = gradient_click_functions[i]
-            frame.mouseMoveEvent = gradient_click_functions[i]
-            frame.wheelEvent = gradient_scroll_functions[i]
+            frame.setFixedSize(frame_width, 20)
             layout.addWidget(frame, i, 1)
             tab.frames.append(frame)
 
-            textbox = QLineEdit()
-            textbox.setFixedSize(45, 20)
-            textbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.set_non_raw_validator(textbox)
-            textbox.textChanged.connect(text_change_functions[i])
-            textbox.wheelEvent = gradient_scroll_functions[i]
-            layout.addWidget(textbox, i, 2)
-            tab.textboxes.append(textbox)
+            line_edit = QLineEdit()
+            line_edit.setFixedSize(55, 20)
+            line_edit.setAlignment(Qt.AlignmentFlag(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter))
+            self.set_non_raw_validator(line_edit)
+            layout.addWidget(line_edit, i, 2)
+            tab.line_edits.append(line_edit)
+
+            click_func = partial(self.on_gradient_click, frame_width, max_values[i], i, is_rgb, False, False)
+            scroll_func = partial(self.on_gradient_scroll, max_values[i], i, is_rgb, False, True)
+            text_change_func = partial(self.on_text_changed, line_edit, max_values[i], i, is_rgb)
+
+            frame.mousePressEvent = click_func
+            frame.mouseMoveEvent = click_func
+            frame.wheelEvent = scroll_func
+            line_edit.wheelEvent = scroll_func
+            line_edit.textChanged.connect(text_change_func)
 
             line_indicator = QFrame(frame)
             tab.line_indicators.append(line_indicator)
@@ -497,10 +469,56 @@ class MainWindow(QWidget):
         return tab
 
 
+    def generate_values_tab(self):
+        values_hex_label = QLabel("HEX:")
+        values_rgb_label = QLabel("RGB:")
+        values_rgbf_label = QLabel("RGBF:")
+        values_hsv_label = QLabel("HSV:")
+        values_hsvf_label = QLabel("HSVF:")
+
+        self.values_hex_line_edit = QLineEdit()
+        self.values_hex_line_edit.setReadOnly(True)
+        self.values_hex_line_edit.mouseReleaseEvent = partial(self.on_line_edit_clicked, self.values_hex_line_edit)
+        self.values_rgb_line_edit = QLineEdit()
+        self.values_rgb_line_edit.setReadOnly(True)
+        self.values_rgb_line_edit.mouseReleaseEvent = partial(self.on_line_edit_clicked, self.values_rgb_line_edit)
+        self.values_rgbf_line_edit = QLineEdit()
+        self.values_rgbf_line_edit.setReadOnly(True)
+        self.values_rgbf_line_edit.mouseReleaseEvent = partial(self.on_line_edit_clicked, self.values_rgbf_line_edit)
+        self.values_hsv_line_edit = QLineEdit()
+        self.values_hsv_line_edit.setReadOnly(True)
+        self.values_hsv_line_edit.mouseReleaseEvent = partial(self.on_line_edit_clicked, self.values_hsv_line_edit)
+        self.values_hsvf_line_edit = QLineEdit()
+        self.values_hsvf_line_edit.setReadOnly(True)
+        self.values_hsvf_line_edit.mouseReleaseEvent = partial(self.on_line_edit_clicked, self.values_hsvf_line_edit)
+
+        values_layout = QGridLayout()
+        values_layout.setContentsMargins(0, 20, 0, 15)
+        values_layout.setHorizontalSpacing(6)
+        values_layout.setVerticalSpacing(6)
+        values_layout.setColumnStretch(1, 6)
+        values_layout.setColumnStretch(2, 1)
+        values_layout.setColumnStretch(4, 6)
+        values_layout.addWidget(values_hex_label, 0, 0)
+        values_layout.addWidget(self.values_hex_line_edit, 0, 1)
+        values_layout.addWidget(values_rgb_label, 1, 0)
+        values_layout.addWidget(self.values_rgb_line_edit, 1, 1)
+        values_layout.addWidget(values_rgbf_label, 2, 0)
+        values_layout.addWidget(self.values_rgbf_line_edit, 2, 1)
+        values_layout.addWidget(values_hsv_label, 1, 3)
+        values_layout.addWidget(self.values_hsv_line_edit, 1, 4)
+        values_layout.addWidget(values_hsvf_label, 2, 3)
+        values_layout.addWidget(self.values_hsvf_line_edit, 2, 4)
+        values_widget = QWidget()
+        values_widget.setLayout(values_layout)
+        return values_widget
+
+
     def set_raw_validator(self, line_edit):
         reg_ex = QRegExp("^([01.]{,1}|[01].)[0-9]{,3}")
         input_validator = QRegExpValidator(reg_ex, line_edit)
         line_edit.setValidator(input_validator)
+
 
     def set_non_raw_validator(self, line_edit):
         reg_ex = QRegExp("[0-9]{,3}")
@@ -510,15 +528,6 @@ class MainWindow(QWidget):
 
     def closeEvent(self, event):
         app.quit()
-
-
-    def resource_path(self, relative_path):
-        if getattr(sys, 'frozen', False):
-            base_path = sys._MEIPASS
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        return os.path.join(base_path, relative_path)
 
 
 if __name__ == '__main__':
