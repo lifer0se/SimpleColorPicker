@@ -108,7 +108,7 @@ class MainWindow(QWidget):
         self.hex_line_edit = QLineEdit()
         self.hex_line_edit.setFixedWidth(70)
         self.hex_line_edit.setAlignment(Qt.AlignmentFlag.AlignRight)
-        self.hex_line_edit.mouseReleaseEvent = lambda a0: self.on_line_edit_clicked(a0, self.hex_line_edit)
+        self.hex_line_edit.mouseReleaseEvent = lambda a0: self.on_line_edit_clicked(self.hex_line_edit, a0)
         self.hex_line_edit.textChanged.connect(self.on_hex_value_changed)
         reg_ex = QRegExp("^#?([A-Fa-f0-9]){,6}$")
         input_validator = QRegExpValidator(reg_ex, self.hex_line_edit)
@@ -374,7 +374,7 @@ class MainWindow(QWidget):
 
 
     def update_values_tab(self):
-        self.values_hex_line_edit.setText("{}".format(self.current_color.name()))
+        self.values_hex_line_edit.setText("{}".format(self.current_color.name().upper()))
         self.values_rgb_line_edit.setText("{}, {}, {}".format(self.current_color.red(), self.current_color.green(), self.current_color.blue()))
         self.values_rgbf_line_edit.setText("{:.3f}, {:.3f}, {:.3f}".format(self.current_color.redF(), self.current_color.greenF(), self.current_color.blueF()))
         self.values_hsv_line_edit.setText("{}, {}, {}".format(self.current_color.hue(), self.current_color.saturation(), self.current_color.value()))
