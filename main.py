@@ -103,7 +103,7 @@ class MainWindow(QWidget):
         picker_button = QPushButton("")
         picker_button.setFixedSize(side_gradient_size, side_gradient_size)
         picker_button.setIcon(QIcon(":picker_icon.png"))
-        picker_button.pressed.connect(self.show_picker)
+        picker_button.released.connect(self.show_picker)
 
         self.hex_line_edit = QLineEdit()
         self.hex_line_edit.setFixedWidth(70)

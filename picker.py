@@ -2,6 +2,7 @@
 from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtGui import QPainter, QColor, QPen, QPainterPath, QPixmap
 from PyQt5.QtCore import Qt, QTimer, QPoint, QRect, QEvent
+from PyQt5.sip import voidptr
 from pynput.mouse import Controller
 from pynput.keyboard import Listener
 
@@ -11,8 +12,9 @@ class PickerWindow(QWidget):
     def __init__(self, parent):
         super(PickerWindow, self).__init__()
 
-        self.setWindowFlags(Qt.BypassWindowManagerHint | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        flags = Qt.WindowType(Qt.WindowType.BypassWindowManagerHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
+        self.setWindowFlags(flags)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
 
         width = 0
         height = 0
@@ -69,17 +71,17 @@ class PickerWindow(QWidget):
 
 
     def eventFilter(self, source, event):
-        if event.type() == QEvent.MouseButtonRelease:
+        if event.type() == QEvent.Type.MouseButtonRelease:
             self.listener.stop()
             self.timer.stop()
             self.running = False
             self.hide()
-            if event.button() != Qt.LeftButton:
+            if event.button() != Qt.MouseButton.LeftButton:
                 return False
             self.parent.current_color = self.current_color
             self.parent.on_color_updated()
             return True
-        if event.type() == QEvent.Show:
+        if event.type() == QEvent.Type.Show:
             self.listener = Listener(on_release=self.keyReleaseEvent)
             self.listener.start()
             self.running = True
@@ -109,7 +111,7 @@ class PickerWindow(QWidget):
 
         image_size = self.magnifier_size * 0.2
         image_half_size = self.magnifier_size * 0.1
-        pixmap = current_screen.grabWindow(0, current_screen_x - int(image_half_size), current_screen_y - int(image_half_size), int(image_size), int(image_size))
+        pixmap = current_screen.grabWindow(voidptr(0), current_screen_x - int(image_half_size), current_screen_y - int(image_half_size), int(image_size), int(image_size))
 
         if self.cursorX - image_half_size < 0:
             pixmap = self.black_out_pixmap(pixmap, 0, image_size - int(self.cursorX + image_half_size), 0, image_size)
